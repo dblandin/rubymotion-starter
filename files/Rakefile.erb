@@ -1,0 +1,98 @@
+# -*- coding: utf-8 -*-
+$:.unshift('/Library/RubyMotion/lib')
+require 'motion/project/template/ios'
+require './config/properties.rb'
+
+begin
+  require 'bundler'
+  if ARGV.join(' ') =~ /spec/
+    Bundler.require :default, :development, :spec
+  elsif ARGV.join(' ') =~ /testflight/
+    Bundler.require :default
+  elsif ARGV.join(' ') =~ /archive/
+    Bundler.require :default
+  else
+    Bundler.require :default, :development
+
+    require 'sugarcube-repl'
+  end
+
+  Bundler.require
+rescue LoadError
+end
+
+environment_variables = Dotenv.load
+
+Motion::Require.all(Dir.glob('lib/**/*.rb') + Dir.glob('app/**/*.rb'))
+
+Motion::Project::App.setup do |app|
+  properties = Properties.new
+
+  app.detect_dependencies = true
+
+  app.name                   = properties.name
+  app.seed_id                = 'YFS345H443'
+  app.identifier             = properties.identifier
+  app.version                = properties.version
+  app.deployment_target      = properties.deployment_target
+  app.interface_orientations = properties.orientations
+
+  # Development / Beta settings
+  app.development do
+    if app.testflight?
+      p 'Building Tesflight build'
+      app.info_plist['ENV_TESTFLIGHT']         = 'True'
+
+      app.testflight do |config|
+        config.api_token          = ENV['TESTFLIGHT_API_TOKEN']
+        config.team_token         = ENV['TESTFLIGHT_TEAM_TOKEN']
+        config.app_token          = ENV['TESTFLIGHT_APP_TOKEN']
+        config.distribution_lists = ['<%= name %>']
+        config.notify             = false
+      end
+
+      app.crittercism do |config|
+        config.app_id  = ENV['CRITTERCISM_APP_ID']
+        config.api_key = ENV['CRITTERCISM_API_KEY']
+      end
+
+      app.codesign_certificate = ENV['ADHOC_CERTIFICATE_NAME']
+      app.provisioning_profile = ENV['ADHOC_PROVISIONING_PROFILE_PATH']
+
+      app.entitlements['get-task-allow']  = false
+      app.entitlements['aps-environment'] = 'production'
+    elsif !ENV['TRAVIS']
+      app.codesign_certificate = ENV['DEVELOPMENT_CERTIFICATE_NAME']
+      app.provisioning_profile = ENV['DEVELOPMENT_PROVISIONING_PROFILE_PATH']
+
+      app.entitlements['get-task-allow']  = true
+      app.entitlements['aps-environment'] = 'development'
+    end
+
+    unless ENV['TRAVIS']
+      app.entitlements['keychain-access-groups'] = [ app.seed_id + '.' + app.identifier ]
+    end
+  end
+
+  # Release settings
+  app.release do
+    app.codesign_certificate = ENV['RELEASE_CERTIFICATE_NAME']
+    app.provisioning_profile = ENV['RELEASE_PROVISIONING_PROFILE_PATH']
+
+    app.entitlements['keychain-access-groups'] = [ app.seed_id + '.' + app.identifier ]
+    app.entitlements['aps-environment'] = 'production'
+  end
+
+  app.icons            = properties.icons
+  app.prerendered_icon = properties.prerendered_icon
+
+  app.libs       = properties.additional_libraries
+  app.frameworks = properties.additional_frameworks
+
+  # Extra plist
+  app.info_plist['CFBundleDevelopmentRegion'] = 'en'
+  environment_variables.each { |key, value| app.info_plist["ENV_#{key}"] = value }
+
+  app.pods do
+  end
+end
