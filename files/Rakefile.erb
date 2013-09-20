@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 $:.unshift('/Library/RubyMotion/lib')
 require 'motion/project/template/ios'
-require './config/properties.rb'
+Dir.glob('./config/*.rb').each { |file| require file }
 
 begin
   require 'bundler'
@@ -39,9 +39,8 @@ Motion::Project::App.setup do |app|
 
   # Development / Beta settings
   app.development do
-    if app.testflight?
-      p 'Building Tesflight build'
-      app.info_plist['ENV_TESTFLIGHT']         = 'True'
+    if app.deploy?
+      app.info_plist['ENV_DEPLOY'] = 'True'
 
       app.testflight do |config|
         config.api_token          = ENV['TESTFLIGHT_API_TOKEN']
@@ -94,5 +93,6 @@ Motion::Project::App.setup do |app|
   environment_variables.each { |key, value| app.info_plist["ENV_#{key}"] = value }
 
   app.pods do
+    # add cocoapods here
   end
 end

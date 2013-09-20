@@ -19,6 +19,6 @@ class AppDelegate
   end
 
   def testflight_build?
-    !!App::ENV['TESTFLIGHT']
+    !!App::ENV['DEPLOY']
   end
 end
